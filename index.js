@@ -39,7 +39,7 @@ app.post('/api/shorturl', (req, res) => {
     res.json({ "original_url": longUrl, "short_url": shortUrl });
   }
   else {
-    res.json({error: "Invalid URL"});
+    res.json({error: "invalid url"});
   }
 });
 
@@ -48,7 +48,7 @@ app.get("/api/shorturl/:shortUrl", (req, res) => {
   if (Object.prototype.hasOwnProperty.call(urlDatabase, shortUrl)) {
     res.redirect(urlDatabase[shortUrl]);
 } else {
-  res.json({error: "Invalid URL"});
+  res.json({error: "invalid url"});
 }
 })
 
