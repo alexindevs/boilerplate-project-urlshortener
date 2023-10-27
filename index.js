@@ -34,6 +34,9 @@ function validator(value) {
 app.post('/api/shorturl', (req, res) => {
   const longUrl = req.body.url;
   const shortUrl = Math.random().toString(36).slice(2);
+
+  console.log(longUrl, shortUrl);
+
   if (validator(longUrl)) {
     urlDatabase[shortUrl] = longUrl;
     res.json({ "original_url": longUrl, "short_url": shortUrl });
