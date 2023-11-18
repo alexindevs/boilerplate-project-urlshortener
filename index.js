@@ -2,13 +2,17 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const bodyparser = require('body-parser');
+const dns = require('dns');
+
+const db = require('./database');
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+let database = []
 
-app.use(express.json());
+app.use(cors());
 
 app.use('/public', express.static(`${process.cwd()}/public`));
 
@@ -21,39 +25,52 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-let urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
-};
-
-function validator(value) {
-  return /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(value);
-}
-
-
-app.post('/api/shorturl', (req, res) => {
-  const longUrl = req.body.url;
-  const shortUrl = Math.random().toString(36).slice(2);
-
-  console.log(longUrl, shortUrl);
-
-  if (validator(longUrl)) {
-    urlDatabase[shortUrl] = longUrl;
-    res.json({ "original_url": longUrl, "short_url": shortUrl });
-  }
-  else {
-    res.json({error: "invalid url"});
-  }
+app.get('/api/shorturl/:short_url', (req, res) => {
+  let short_url = parseInt(req.params.short_url)
+  // let data = database[short_url - 1];
+  // if (!data){
+  //   res.json({error: "invalid url"});
+  // }
+  // else{
+  //   res.redirect(data.original_url);
+  // }
+  db.UrlModel.findOne({short_id: short_url})
+  .then((url) => {
+    console.log(url);
+    res.redirect(url.original_url);
+  })
+  .catch((err) => {
+    console.log(err);
+    res.json({error: 'invalid url'});
+  });
 });
 
-app.get("/api/shorturl/:shortUrl", (req, res) => {
-  const { shortUrl } = req.params;
-  if (Object.prototype.hasOwnProperty.call(urlDatabase, shortUrl)) {
-    res.redirect(urlDatabase[shortUrl]);
-} else {
-  res.json({error: "invalid url"});
-}
-})
+app.post('/api/shorturl', bodyparser.urlencoded({ extended: false }), 
+(req, res, next) => {
+  const domain = new URL(req.body.url).hostname;
+  dns.lookup(domain, (err, address, family) => {
+    if (err) {
+      res.json({error: "invalid url"});
+    } else {
+      next();
+    }
+  });
+}, (req, res) => {
+  let data = {original_url : req.body.url, short_url : database.length + 1};
+  let url = new db.UrlModel({
+    original_url : req.body.url,
+    short_id : database.length + 1
+  })
+  url.save().then(() => {
+      res.json(data);
+      console.log(`${data} saved successfully`); 
+  }).catch((err) => {
+    res.json({error: 'invalid url'});
+      console.log(`${data} unsaved, error: ${err.message}`);
+  });
+  database.push(data);
+
+});
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
